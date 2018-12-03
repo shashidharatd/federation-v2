@@ -36,6 +36,8 @@ const (
 	RecordTypeA = "A"
 	// RecordTypeCNAME is a RecordType enum value
 	RecordTypeCNAME = "CNAME"
+	// RecordTypeSRV is a RecordType enum value
+	RecordTypeSRV = "SRV"
 )
 
 // Abstracting away the internet for testing purposes

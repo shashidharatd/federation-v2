@@ -122,7 +122,71 @@ func getServiceDNSEndpoints(obj interface{}) ([]*feddnsv1a1.Endpoint, error) {
 		}
 	}
 
+	endpoints = append(endpoints, getWeightedServiceDNSEndpoints(dnsObject)...)
+
 	return DedupeAndMergeEndpoints(endpoints), nil
+}
+
+// getWeightedServiceDNSEndpoints creates additional DNS SRV records by calculating weights for the region based on
+// number of target endpoints available for the service in the region.
+func getWeightedServiceDNSEndpoints(dnsObject *feddnsv1a1.ServiceDNSRecord) []*feddnsv1a1.Endpoint {
+	var endpoints []*feddnsv1a1.Endpoint
+	regionTargets := make(map[string]int32)
+	totalTargets := int32(0)
+
+	// Calculate Total number of target endpoints and regions for the service
+	for _, clusterDNS := range dnsObject.Status.DNS {
+		totalTargets += clusterDNS.EndpointNum
+		if _, exist := regionTargets[clusterDNS.Region]; exist {
+			regionTargets[clusterDNS.Region] = regionTargets[clusterDNS.Region] + clusterDNS.EndpointNum
+		} else {
+			regionTargets[clusterDNS.Region] = clusterDNS.EndpointNum
+		}
+	}
+
+	// If there are no target endpoints for the service, do not create any weighted records.
+	if totalTargets == 0 {
+		return endpoints
+	}
+
+	commonPrefix := strings.Join([]string{dnsObject.Name, dnsObject.Namespace, dnsObject.Spec.DomainRef, "svc"}, ".")
+	for region, regionTargetNum := range regionTargets {
+		hostname := strings.Join([]string{commonPrefix, dnsObject.Status.Domain}, ".")
+		regionHostname := strings.Join([]string{commonPrefix, region, dnsObject.Status.Domain}, ".")
+
+		for _, port := range dnsObject.Status.Ports {
+			portName := port.Name
+			if portName == "" {
+				// TODO: should the port name be picked from NodePort?
+				portName = fmt.Sprintf("%d", port.Port)
+			}
+
+			protocol := strings.ToLower(string(port.Protocol))
+			if protocol == "" {
+				protocol = "tcp"
+			}
+
+			// Calculate weight for the region
+			weight := regionTargetNum * 100 / totalTargets
+
+			ttl := dnsObject.Spec.RecordTTL
+			if ttl == 0 {
+				ttl = defaultDNSTTL
+			}
+
+			// build a target with a priority of 0, with calculated weight, and pointing the given port on the given host
+			target := fmt.Sprintf("0 %d %d %s.", weight, port.Port, regionHostname)
+
+			endpoint := &feddnsv1a1.Endpoint{
+				DNSName:    fmt.Sprintf("_%s._%s.%s", portName, protocol, hostname),
+				RecordTTL:  ttl,
+				RecordType: RecordTypeSRV,
+				Targets:    []string{target},
+			}
+			endpoints = append(endpoints, endpoint)
+		}
+	}
+	return endpoints
 }
 
 func generateEndpointForServiceDNSObject(name string, targets feddnsv1a1.Targets, uplevelCname string,

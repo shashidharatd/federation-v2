@@ -316,17 +316,19 @@ func (c *Controller) reconcile(qualifiedName util.QualifiedName) util.Reconcilia
 		// If there are no endpoints for the service, the service is not backed by pods
 		// and traffic is not routable to the service. We avoid such service shards while
 		// writing DNS records, except when user specified to AllowServiceWithoutEndpoints
-		endpointsExist, err := c.serviceBackedByEndpointsInCluster(cluster.Name, key)
+		endpointNum, err := c.serviceBackedByEndpointsInCluster(cluster.Name, key)
 		if err != nil {
 			return util.StatusError
 		}
-		if cachedDNS.Spec.AllowServiceWithoutEndpoints || endpointsExist {
-			lbStatus, err := c.getServiceStatusInCluster(cluster.Name, key)
+		if cachedDNS.Spec.AllowServiceWithoutEndpoints || endpointNum > 0 {
+			service, err := c.getServiceInCluster(cluster.Name, key)
 			if err != nil {
 				return util.StatusError
 			}
-			clusterDNS.LoadBalancer = *lbStatus
+			clusterDNS.LoadBalancer = service.Status.LoadBalancer
+			fedDNS.Status.Ports = service.Spec.Ports
 		}
+		clusterDNS.EndpointNum = endpointNum
 		fedDNSStatus = append(fedDNSStatus, clusterDNS)
 	}
 
@@ -368,28 +370,26 @@ func (c *Controller) reconcile(qualifiedName util.QualifiedName) util.Reconcilia
 	return util.StatusAllOK
 }
 
-// getServiceStatusInCluster returns service status in federated cluster
-func (c *Controller) getServiceStatusInCluster(cluster, key string) (*corev1.LoadBalancerStatus, error) {
-	lbStatus := &corev1.LoadBalancerStatus{}
-
+// getServiceInCluster returns service in federated cluster
+func (c *Controller) getServiceInCluster(cluster, key string) (*corev1.Service, error) {
+	service := corev1.Service{}
 	clusterServiceObj, serviceFound, err := c.serviceInformer.GetTargetStore().GetByKey(cluster, key)
 	if err != nil {
 		runtime.HandleError(fmt.Errorf("Failed to get %s service from %s: %v", key, cluster, err))
-		return lbStatus, err
+		return nil, err
 	}
 	if serviceFound {
 		//TODO(shashi): Find better alternative to convert Unstructured to a given type
 		clusterService, ok := clusterServiceObj.(*unstructured.Unstructured)
 		if !ok {
 			runtime.HandleError(fmt.Errorf("Failed to cast the object to unstructured object: %v", clusterServiceObj))
-			return lbStatus, err
+			return nil, err
 		}
 		content, err := clusterService.MarshalJSON()
 		if err != nil {
 			runtime.HandleError(fmt.Errorf("Failed to marshall the unstructured object: %v", clusterService))
-			return lbStatus, err
+			return nil, err
 		}
-		service := corev1.Service{}
 		err = json.Unmarshal(content, &service)
 		if err == nil {
 			// Sort the ingress slice, so that we return comparable service status.
@@ -400,32 +400,31 @@ func (c *Controller) getServiceStatusInCluster(cluster, key string) (*corev1.Loa
 				}
 				return ingress[i].IP < ingress[j].IP
 			})
-			lbStatus = &service.Status.LoadBalancer
 		}
 	}
-	return lbStatus, nil
+	return &service, nil
 }
 
 // serviceBackedByEndpointsInCluster returns ready endpoints corresponding to service in federated cluster
-func (c *Controller) serviceBackedByEndpointsInCluster(cluster, key string) (bool, error) {
+func (c *Controller) serviceBackedByEndpointsInCluster(cluster, key string) (int32, error) {
 	addresses := []corev1.EndpointAddress{}
 
 	clusterEndpointObj, endpointFound, err := c.endpointInformer.GetTargetStore().GetByKey(cluster, key)
 	if err != nil {
 		runtime.HandleError(fmt.Errorf("Failed to get %s endpoint from %s: %v", key, cluster, err))
-		return false, err
+		return 0, err
 	}
 	if endpointFound {
 		//TODO(shashi): Find better alternative to convert Unstructured to a given type
 		clusterEndpoints, ok := clusterEndpointObj.(*unstructured.Unstructured)
 		if !ok {
 			runtime.HandleError(fmt.Errorf("Failed to cast the object to unstructured object: %v", clusterEndpointObj))
-			return false, err
+			return 0, err
 		}
 		content, err := clusterEndpoints.MarshalJSON()
 		if err != nil {
 			runtime.HandleError(fmt.Errorf("Failed to marshall the unstructured object: %v", clusterEndpoints))
-			return false, err
+			return 0, err
 		}
 		endpoints := corev1.Endpoints{}
 		err = json.Unmarshal(content, &endpoints)
@@ -437,5 +436,5 @@ func (c *Controller) serviceBackedByEndpointsInCluster(cluster, key string) (boo
 			}
 		}
 	}
-	return (len(addresses) > 0), nil
+	return int32(len(addresses)), nil
 }

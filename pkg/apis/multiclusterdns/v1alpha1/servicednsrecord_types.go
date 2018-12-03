@@ -34,6 +34,8 @@ type ServiceDNSRecordSpec struct {
 	ExternalName string `json:"externalName,omitempty"`
 	// AllowServiceWithoutEndpoints allows DNS records to be written for Service shards without endpoints
 	AllowServiceWithoutEndpoints bool `json:"allowServiceWithoutEndpoints,omitempty"`
+	// EnableWeightedTargets creates SRV records with calculated weights for the targets for the service in each region.
+	EnableWeightedTargets bool `json:"enableWeightedTargets,omitempty"`
 }
 
 // ServiceDNSRecordStatus defines the observed state of ServiceDNSRecord.
@@ -41,6 +43,8 @@ type ServiceDNSRecordStatus struct {
 	// Domain is the DNS domain of the federation as in Domain API
 	Domain string       `json:"domain,omitempty"`
 	DNS    []ClusterDNS `json:"dns,omitempty"`
+	// Ports of the service associated with the ServiceDNSRecord.
+	Ports []corev1.ServicePort `json:"ports,omitempty"`
 }
 
 // ClusterDNS defines the observed status of LoadBalancer within a cluster.
@@ -53,6 +57,8 @@ type ClusterDNS struct {
 	Zone string `json:"zone,omitempty"`
 	// Region to which the cluster belongs
 	Region string `json:"region,omitempty"`
+	// Number of endpoints for the service in the cluster.
+	EndpointNum int32 `json:"endpointNum,omitempty"`
 }
 
 // +genclient
