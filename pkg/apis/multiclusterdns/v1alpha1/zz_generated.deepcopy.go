@@ -21,6 +21,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -463,6 +464,11 @@ func (in *ServiceDNSRecordStatus) DeepCopyInto(out *ServiceDNSRecordStatus) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.Ports != nil {
+		in, out := &in.Ports, &out.Ports
+		*out = make([]v1.ServicePort, len(*in))
+		copy(*out, *in)
 	}
 	return
 }

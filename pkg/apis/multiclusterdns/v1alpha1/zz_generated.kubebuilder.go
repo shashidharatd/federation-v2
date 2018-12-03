@@ -323,6 +323,9 @@ var (
 								"domainRef": v1beta1.JSONSchemaProps{
 									Type: "string",
 								},
+								"enableWeightedTargets": v1beta1.JSONSchemaProps{
+									Type: "boolean",
+								},
 								"externalName": v1beta1.JSONSchemaProps{
 									Type: "string",
 								},
@@ -346,6 +349,10 @@ var (
 												"cluster": v1beta1.JSONSchemaProps{
 													Type: "string",
 												},
+												"endpointNum": v1beta1.JSONSchemaProps{
+													Type:   "integer",
+													Format: "int32",
+												},
 												"loadBalancer": v1beta1.JSONSchemaProps{
 													Type:       "object",
 													Properties: map[string]v1beta1.JSONSchemaProps{},
@@ -362,6 +369,15 @@ var (
 								},
 								"domain": v1beta1.JSONSchemaProps{
 									Type: "string",
+								},
+								"ports": v1beta1.JSONSchemaProps{
+									Type: "array",
+									Items: &v1beta1.JSONSchemaPropsOrArray{
+										Schema: &v1beta1.JSONSchemaProps{
+											Type:       "object",
+											Properties: map[string]v1beta1.JSONSchemaProps{},
+										},
+									},
 								},
 							},
 						},
