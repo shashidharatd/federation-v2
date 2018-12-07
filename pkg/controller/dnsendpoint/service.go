@@ -83,7 +83,7 @@ func getServiceDNSEndpoints(obj interface{}) ([]*feddnsv1a1.Endpoint, error) {
 
 		var zoneTargets, regionTargets, globalTargets feddnsv1a1.Targets
 		for _, clusterDNS := range dnsObject.Status.DNS {
-			if clusterDNS.Zone == zone {
+			if clusterDNS.Region == region && clusterDNS.Zone == zone {
 				zoneTargets = append(zoneTargets, ExtractLoadBalancerTargets(clusterDNS.LoadBalancer)...)
 			}
 		}
