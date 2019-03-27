@@ -52,6 +52,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.LimitedScope, "limited-scope", false, "Whether the federation namespace will be the only target for federation.")
 	fs.DurationVar(&o.ClusterMonitorPeriod, "cluster-monitor-period", time.Second*40, "How often to monitor the cluster health")
 
+	fs.BoolVar(&o.Config.AdoptExistingResource, "adopt-existing-resource", true, "Whether the federation control plane should operate on exisitng resources in member clusters.")
+
 	fs.DurationVar(&o.LeaderElection.LeaseDuration, "leader-elect-lease-duration", util.DefaultLeaderElectionLeaseDuration, ""+
 		"The duration that non-leader candidates will wait after observing a leadership "+
 		"renewal until attempting to acquire leadership of a led but unrenewed leader "+

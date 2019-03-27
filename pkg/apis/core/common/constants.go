@@ -34,3 +34,8 @@ const (
 	// GenerationComparison indicates comparison via the Generation field
 	GenerationField = "Generation"
 )
+
+const (
+	// ManagedByFederationLabel is the label to identify whether a resource in member cluster is managed by federation
+	ManagedByFederationLabel = "federation.k8s.io/managed"
+)

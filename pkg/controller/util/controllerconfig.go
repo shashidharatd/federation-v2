@@ -63,6 +63,7 @@ type ControllerConfig struct {
 	ClusterAvailableDelay   time.Duration
 	ClusterUnavailableDelay time.Duration
 	MinimizeLatency         bool
+	AdoptExistingResource   bool
 }
 
 func (c *ControllerConfig) LimitedScope() bool {

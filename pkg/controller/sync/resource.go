@@ -20,6 +20,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"github.com/kubernetes-sigs/federation-v2/pkg/apis/core/common"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -47,6 +48,7 @@ type FederatedResource interface {
 	DeleteVersions()
 	ComputePlacement(clusters []*fedv1a1.FederatedCluster) (selectedClusters, unselectedClusters []string, err error)
 	SkipClusterChange(clusterObj pkgruntime.Object) bool
+	SkipUnmanaged(clusterObj pkgruntime.Object) bool
 	ObjectForCluster(clusterName string) (*unstructured.Unstructured, error)
 	MarkedForDeletion() bool
 	EnsureDeletion() error
@@ -126,6 +128,15 @@ func (r *federatedResource) SkipClusterChange(clusterObj pkgruntime.Object) bool
 	return r.targetIsNamespace && util.IsPrimaryCluster(r.namespace, clusterObj)
 }
 
+func (r *federatedResource) SkipUnmanaged(clusterObj pkgruntime.Object) bool {
+	labels := util.MetaAccessor(clusterObj).GetLabels()
+	managed, exist := labels[common.ManagedByFederationLabel]
+	if !exist || managed != "true" {
+		return true
+	}
+	return false
+}
+
 // TODO(marun) Marshall the template once per reconcile, not per-cluster
 func (r *federatedResource) ObjectForCluster(clusterName string) (*unstructured.Unstructured, error) {
 	// Federation of namespaces uses Namespace resources as the
@@ -166,6 +177,12 @@ func (r *federatedResource) ObjectForCluster(clusterName string) (*unstructured.
 		targetApiResource := r.typeConfig.GetTarget()
 		obj.SetKind(targetApiResource.Kind)
 		obj.SetAPIVersion(fmt.Sprintf("%s/%s", targetApiResource.Group, targetApiResource.Version))
+		labels := r.federatedResource.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+		labels[common.ManagedByFederationLabel] = "true"
+		obj.SetLabels(labels)
 	}
 
 	overrides, err := r.overridesForCluster(clusterName)

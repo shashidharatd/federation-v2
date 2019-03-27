@@ -30,6 +30,8 @@ controllermanager:
   federationNamespace:
   ## The cluster registry namespace. If unset, will default to kube-multicluster-public.
   registryNamespace:
+  ## Whether federation control plane adopt existing resources in member cluster
+  adoptExistingResources: false
   
 
 ## Configuration values for federation v2 clusterregistry.

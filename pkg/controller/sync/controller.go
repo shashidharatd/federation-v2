@@ -69,6 +69,8 @@ type FederationSyncController struct {
 	typeConfig typeconfig.Interface
 
 	fedAccessor FederatedResourceAccessor
+
+	adoptExistingResource bool
 }
 
 // StartFederationSyncController starts a new sync controller for a type config
@@ -105,6 +107,7 @@ func newFederationSyncController(controllerConfig *util.ControllerConfig, typeCo
 		updateTimeout:           time.Second * 30,
 		eventRecorder:           recorder,
 		typeConfig:              typeConfig,
+		adoptExistingResource:   controllerConfig.AdoptExistingResource,
 	}
 
 	s.worker = util.NewReconcileWorker(s.reconcile, util.WorkerTiming{
@@ -377,6 +380,12 @@ func (s *FederationSyncController) clusterOperations(selectedClusters, unselecte
 				continue
 			}
 
+			if !s.adoptExistingResource && fedResource.SkipUnmanaged(clusterObj) {
+				s.eventRecorder.Eventf(fedResource.Object(), corev1.EventTypeWarning, "UnmanagedObjectExist",
+					"Skipping opertation on unmanaged object %s %q in cluster %q", kind, key, clusterName)
+				continue
+			}
+
 			desiredObj, err = objectForUpdateOp(targetKind, desiredObj, clusterObj, fedResource.Object())
 			if err != nil {
 				wrappedErr := errors.Wrapf(err, "Failed to determine desired object %s %q for cluster %q", kind, key, clusterName)
@@ -417,6 +426,13 @@ func (s *FederationSyncController) clusterOperations(selectedClusters, unselecte
 			if fedResource.SkipClusterChange(clusterObj) {
 				continue
 			}
+
+			if !s.adoptExistingResource && fedResource.SkipUnmanaged(clusterObj) {
+				s.eventRecorder.Eventf(fedResource.Object(), corev1.EventTypeWarning, "UnmanagedObjectExist",
+					"Skipping opertation on unmanaged object %s %q in cluster %q", kind, key, clusterName)
+				continue
+			}
+
 			operations = append(operations, util.FederatedOperation{
 				Type:        util.OperationTypeDelete,
 				Obj:         clusterObj,
