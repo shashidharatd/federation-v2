@@ -109,6 +109,8 @@ func getServiceDNSEndpoints(obj interface{}) ([]*feddnsv1a1.Endpoint, error) {
 				weight = 0
 			}
 			clusterWeights[clusterDNS.Cluster] = weight
+		} else if dnsObject.Spec.EnableWeightedTargets {
+			clusterWeights = getDNSWeightsBasedOnNumberOfTargetsInCluster(dnsObject)
 		}
 	}
 
@@ -124,7 +126,7 @@ func getServiceDNSEndpoints(obj interface{}) ([]*feddnsv1a1.Endpoint, error) {
 
 	// add by paas
 	endpoints = DedupeAndMergeEndpoints(endpoints)
-	if customizeDNSWeights {
+	if customizeDNSWeights || dnsObject.Spec.EnableWeightedTargets {
 		data, err := json.Marshal(clusterWeights)
 		if err != nil {
 			glog.Errorf("Marshal weight information error: %#v", err)
@@ -140,6 +142,31 @@ func getServiceDNSEndpoints(obj interface{}) ([]*feddnsv1a1.Endpoint, error) {
 	}
 
 	return endpoints, nil
+}
+
+func getDNSWeightsBasedOnNumberOfTargetsInCluster(dnsObject *feddnsv1a1.ServiceDNSRecord) map[string]int32 {
+	clusterWeights := make(map[string]int32)
+
+	totalTargets := int32(0)
+	clusterTargets := make(map[string]int32)
+
+	for _, clusterDNS := range dnsObject.Status.DNS {
+		totalTargets += clusterDNS.EndpointNum
+		key := clusterDNS.Cluster
+		if _, exist := clusterTargets[key]; exist {
+			clusterTargets[key] = clusterTargets[key] + clusterDNS.EndpointNum
+		} else {
+			clusterTargets[key] = clusterDNS.EndpointNum
+		}
+	}
+
+	for clusterName, clusterTargetNum := range clusterTargets {
+		// Calculate weight for the cluster
+		weight := clusterTargetNum * 100 / totalTargets
+		clusterWeights[clusterName] = weight
+	}
+
+	return clusterWeights
 }
 
 func generateEndpointForServiceDNSObject(name string, targets feddnsv1a1.Targets, uplevelCname string,

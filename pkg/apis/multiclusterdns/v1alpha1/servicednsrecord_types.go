@@ -34,6 +34,8 @@ type ServiceDNSRecordSpec struct {
 	ExternalName string `json:"externalName,omitempty"`
 	// AllowServiceWithoutEndpoints allows DNS records to be written for Service shards without endpoints
 	AllowServiceWithoutEndpoints bool `json:"allowServiceWithoutEndpoints,omitempty"`
+	// EnableWeightedTargets creates weighted A records for the targets for the service in each cluster.
+	EnableWeightedTargets bool `json:"enableWeightedTargets,omitempty"`
 }
 
 // ServiceDNSRecordStatus defines the observed state of ServiceDNSRecord.
@@ -53,6 +55,8 @@ type ClusterDNS struct {
 	Zones []string `json:"zones,omitempty"`
 	// Region to which the cluster belongs
 	Region string `json:"region,omitempty"`
+	// Number of endpoints for the service in the cluster.
+	EndpointNum int32 `json:"endpointNum,omitempty"`
 }
 
 // +genclient

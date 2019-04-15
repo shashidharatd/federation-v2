@@ -189,6 +189,7 @@ func createClusterServiceAndEndpoints(f framework.FederationFramework, name, nam
 			LoadBalancer: loadbalancerStatus,
 			Region:       clusterRegionZones[clusterName].Region,
 			Zones:        clusterRegionZones[clusterName].Zones,
+			EndpointNum:  1,
 		})
 
 		common.WaitForNamespaceOrDie(framework.NewE2ELogger(), client, clusterName, namespace,

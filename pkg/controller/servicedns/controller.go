@@ -315,17 +315,18 @@ func (c *Controller) reconcile(qualifiedName util.QualifiedName) util.Reconcilia
 		// If there are no endpoints for the service, the service is not backed by pods
 		// and traffic is not routable to the service. We avoid such service shards while
 		// writing DNS records, except when user specified to AllowServiceWithoutEndpoints
-		endpointsExist, err := c.serviceBackedByEndpointsInCluster(cluster.Name, key)
+		endpointNum, err := c.serviceBackedByEndpointsInCluster(cluster.Name, key)
 		if err != nil {
 			return util.StatusError
 		}
-		if cachedDNS.Spec.AllowServiceWithoutEndpoints || endpointsExist {
+		if cachedDNS.Spec.AllowServiceWithoutEndpoints || endpointNum > 0 {
 			lbStatus, err := c.getServiceStatusInCluster(cluster.Name, key)
 			if err != nil {
 				return util.StatusError
 			}
 			clusterDNS.LoadBalancer = *lbStatus
 		}
+		clusterDNS.EndpointNum = endpointNum
 		fedDNSStatus = append(fedDNSStatus, clusterDNS)
 	}
 
@@ -406,25 +407,25 @@ func (c *Controller) getServiceStatusInCluster(cluster, key string) (*corev1.Loa
 }
 
 // serviceBackedByEndpointsInCluster returns ready endpoints corresponding to service in federated cluster
-func (c *Controller) serviceBackedByEndpointsInCluster(cluster, key string) (bool, error) {
+func (c *Controller) serviceBackedByEndpointsInCluster(cluster, key string) (int32, error) {
 	addresses := []corev1.EndpointAddress{}
 
 	clusterEndpointObj, endpointFound, err := c.endpointInformer.GetTargetStore().GetByKey(cluster, key)
 	if err != nil {
 		runtime.HandleError(errors.Wrapf(err, "Failed to get %s endpoint from %s", key, cluster))
-		return false, err
+		return 0, err
 	}
 	if endpointFound {
 		//TODO(shashi): Find better alternative to convert Unstructured to a given type
 		clusterEndpoints, ok := clusterEndpointObj.(*unstructured.Unstructured)
 		if !ok {
 			runtime.HandleError(errors.Errorf("Failed to cast the object to unstructured object: %v", clusterEndpointObj))
-			return false, err
+			return 0, err
 		}
 		content, err := clusterEndpoints.MarshalJSON()
 		if err != nil {
 			runtime.HandleError(errors.Errorf("Failed to marshall the unstructured object: %v", clusterEndpoints))
-			return false, err
+			return 0, err
 		}
 		endpoints := corev1.Endpoints{}
 		err = json.Unmarshal(content, &endpoints)
@@ -436,5 +437,5 @@ func (c *Controller) serviceBackedByEndpointsInCluster(cluster, key string) (boo
 			}
 		}
 	}
-	return (len(addresses) > 0), nil
+	return int32(len(addresses)), nil
 }
