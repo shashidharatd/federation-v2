@@ -17,9 +17,10 @@ limitations under the License.
 package dnsendpoint
 
 import (
-	"strings"
-
+	"encoding/json"
+	"github.com/golang/glog"
 	"github.com/pkg/errors"
+	"strings"
 
 	restclient "k8s.io/client-go/rest"
 
@@ -63,6 +64,11 @@ func getServiceDNSEndpoints(obj interface{}) ([]*feddnsv1a1.Endpoint, error) {
 		ttl = defaultDNSTTL
 	}
 
+	// add by paas
+	// extract DNS weights from annotation provided by user
+	customizeDNSWeights, userProvidedClusterWeights := extractWeightInformationFromAnnotations(dnsObject.Annotations)
+	clusterWeights := make(map[string]int32)
+	globalDnsName := strings.Join([]string{commonPrefix, dnsObject.Status.Domain}, ".")
 	for _, clusterDNS := range dnsObject.Status.DNS {
 		var zoneDNSName string
 		regionDNSName := strings.Join([]string{commonPrefix, clusterDNS.Region, dnsObject.Status.Domain}, ".") // region level, one up from zone level
@@ -94,6 +100,16 @@ func getServiceDNSEndpoints(obj interface{}) ([]*feddnsv1a1.Endpoint, error) {
 			return nil, err
 		}
 		endpoints = append(endpoints, globalEndpoint)
+
+		// add by paas
+		if customizeDNSWeights {
+			weight, ok := userProvidedClusterWeights[clusterDNS.Cluster]
+			if !ok {
+				// if not provided, use default 0
+				weight = 0
+			}
+			clusterWeights[clusterDNS.Cluster] = weight
+		}
 	}
 
 	if dnsObject.Spec.DNSPrefix != "" {
@@ -106,7 +122,24 @@ func getServiceDNSEndpoints(obj interface{}) ([]*feddnsv1a1.Endpoint, error) {
 		endpoints = append(endpoints, endpoint)
 	}
 
-	return DedupeAndMergeEndpoints(endpoints), nil
+	// add by paas
+	endpoints = DedupeAndMergeEndpoints(endpoints)
+	if customizeDNSWeights {
+		data, err := json.Marshal(clusterWeights)
+		if err != nil {
+			glog.Errorf("Marshal weight information error: %#v", err)
+		} else {
+			for _, endpoint := range endpoints {
+				if endpoint.DNSName == globalDnsName {
+					endpoint.ProviderSpecific = make(feddnsv1a1.ProviderSpecific)
+					endpoint.ProviderSpecific[WeightDnsRecordAnnotationKey] = string(data)
+					break
+				}
+			}
+		}
+	}
+
+	return endpoints, nil
 }
 
 func generateEndpointForServiceDNSObject(name string, targets feddnsv1a1.Targets, uplevelCname string,

@@ -17,6 +17,7 @@ limitations under the License.
 package dnsendpoint
 
 import (
+	"encoding/json"
 	"net"
 	"sort"
 
@@ -36,6 +37,9 @@ const (
 	RecordTypeA = "A"
 	// RecordTypeCNAME is a RecordType enum value
 	RecordTypeCNAME = "CNAME"
+
+	// add by paas
+	WeightDnsRecordAnnotationKey = "external-dns.alpha.kubernetes.io/huawei-dns-weight"
 )
 
 // Abstracting away the internet for testing purposes
@@ -145,4 +149,24 @@ func sortAndRemoveDuplicateTargets(targets []string) []string {
 		i++
 	}
 	return targets
+}
+
+// add by paas
+// if annotations struct error, may be just record
+func extractWeightInformationFromAnnotations(annotations map[string]string) (bool, map[string]int32) {
+	clusterWeights := make(map[string]int32)
+	if annotations == nil || len(annotations) == 0 {
+		return false, clusterWeights
+	}
+	weights, ok := annotations[WeightDnsRecordAnnotationKey]
+	if !ok {
+		return false, clusterWeights
+	}
+	err := json.Unmarshal([]byte(weights), &clusterWeights)
+	if err != nil {
+		glog.Errorf("Extract weight information from annotations error: %#v", err)
+		return false, clusterWeights
+	}
+
+	return true, clusterWeights
 }

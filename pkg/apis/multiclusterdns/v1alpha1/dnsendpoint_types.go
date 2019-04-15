@@ -30,6 +30,9 @@ type TTL int64
 // it is then stored in a persistent storage via serialization
 type Labels map[string]string
 
+// ProviderSpecific holds configuration which is specific to individual DNS providers
+type ProviderSpecific map[string]string
+
 // Endpoint is a high-level association between a service and an IP.
 type Endpoint struct {
 	// The FQDN of the DNS record.
@@ -43,6 +46,9 @@ type Endpoint struct {
 	// Labels stores labels defined for the Endpoint.
 	// +optional
 	Labels Labels `json:"labels,omitempty"`
+	// ProviderSpecific stores provider specific config
+	// +optional
+	ProviderSpecific ProviderSpecific `json:"providerSpecific,omitempty"`
 }
 
 // DNSEndpointSpec defines the desired state of DNSEndpoint
