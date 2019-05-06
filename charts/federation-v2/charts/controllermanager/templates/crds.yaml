@@ -527,6 +527,9 @@ spec:
                   labels:
                     description: Labels stores labels defined for the Endpoint.
                     type: object
+                  providerSpecific:
+                    description: ProviderSpecific stores provider specific config
+                    type: object
                   recordTTL:
                     description: TTL for the record in seconds.
                     format: int64
@@ -720,6 +723,10 @@ spec:
               description: DomainRef is the name of the domain object to which the
                 corresponding federated service belongs
               type: string
+            enableWeightedTargets:
+              description: EnableWeightedTargets creates weighted A records for the
+                targets for the service in each cluster.
+              type: boolean
             externalName:
               description: ExternalName when specified, replaces the service name
                 portion of a resource record with the value of ExternalName.
@@ -740,6 +747,10 @@ spec:
                   cluster:
                     description: Cluster name
                     type: string
+                  endpointNum:
+                    description: Number of endpoints for the service in the cluster.
+                    format: int32
+                    type: integer
                   loadBalancer:
                     description: LoadBalancer for the corresponding service
                     type: object
