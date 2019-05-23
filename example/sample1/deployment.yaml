@@ -20,7 +20,15 @@ spec:
         volumeMounts:
         - name: web-file
           mountPath: /usr/share/nginx/html/
+        - name: workaround
+          mountPath: /tmp/
       volumes:
         - name: web-file
+          configMap:
+            name: web-file
+            items:
+            - key: content
+              path: index.html
+        - name: workaround
           configMap:
             name: web-file

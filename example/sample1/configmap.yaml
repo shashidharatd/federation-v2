@@ -3,5 +3,5 @@ kind: ConfigMap
 metadata:
   name: web-file
 data:
-  index.html: "Hello from Kubernetes Cluster Federation!"
+  content: "Hello from Kubernetes Cluster Federation!"
 
